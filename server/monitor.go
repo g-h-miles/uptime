@@ -5,11 +5,22 @@ import (
 	"sync"
 	"time"
 
-	"uptime/probes"
 	"uptime/storage"
 )
 
-var once sync.Once
+var (
+	once             sync.Once
+	monitorResetChan = make(chan struct{}, 1)
+)
+
+// ResetMonitorLoop sends a signal to reset the monitor loop, breaking any current sleep.
+func ResetMonitorLoop() {
+	select {
+	case monitorResetChan <- struct{}{}:
+	default:
+		// Channel is full, a reset is already pending.
+	}
+}
 
 func StartMonitoring() {
 	once.Do(func() {
@@ -18,13 +29,14 @@ func StartMonitoring() {
 }
 
 func monitorLoop() {
-	targets := []probes.Target{
-		probes.HTTP{URL: "https://www.google.com"},
-		probes.HTTP{URL: "https://github.com"},
-		probes.Postgres{DSN: "postgres://user:pass@localhost:5432/postgres?sslmode=disable"},
-		probes.Redis{Addr: "localhost:6379"},
-	}
 	for {
+		targets, err := storage.GetTargets()
+		if err != nil {
+			log.Println("error getting targets:", err)
+			time.Sleep(GetFrequency()) // Sleep even on error to prevent fast error loops
+			continue
+		}
+
 		freq := GetFrequency()
 		for _, t := range targets {
 			res := t.Check()
@@ -32,6 +44,11 @@ func monitorLoop() {
 				log.Println("save error:", err)
 			}
 		}
-		time.Sleep(freq)
+
+		select {
+		case <-time.After(freq):
+		case <-monitorResetChan:
+			// Settings have changed, loop immediately.
+		}
 	}
 }

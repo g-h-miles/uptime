@@ -2,19 +2,26 @@ package probes
 
 import (
 	"context"
-	"github.com/redis/go-redis/v9"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type Redis struct {
 	Addr string
+	User string
+	Pass string
 }
 
 func (r Redis) Check() Result {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	c := redis.NewClient(&redis.Options{Addr: r.Addr})
+	c := redis.NewClient(&redis.Options{
+		Addr:     r.Addr,
+		Username: r.User,
+		Password: r.Pass,
+	})
 	err := c.Ping(ctx).Err()
 	duration := time.Since(start)
 	if err != nil {
