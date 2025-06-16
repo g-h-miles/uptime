@@ -13,7 +13,7 @@ var db *sql.DB
 
 func Init() error {
 	var err error
-	db, err = sql.Open("sqlite3", "monitor.db")
+	db, err = sql.Open("sqlite3", "/persistent/monitor.db")
 	if err != nil {
 		return err
 	}
