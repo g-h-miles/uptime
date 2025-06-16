@@ -29,8 +29,17 @@ func notifyDown(resource string) {
 			return
 		}
 	}
-	if err := sendTelegram("Resource down: " + resource); err == nil {
+	if err := sendTelegram("🚨 Resource down: " + resource); err == nil {
 		lastSent[resource] = now
+	}
+}
+
+func notifyUp(resource string) {
+	if err := sendTelegram("✅ Resource back up: " + resource); err == nil {
+		// Clear the 'lastSent' timestamp for this resource.
+		// This is important so that if it goes down again, a new
+		// 'down' notification can be sent immediately.
+		delete(lastSent, resource)
 	}
 }
 
