@@ -11,6 +11,8 @@ import (
 var (
 	once             sync.Once
 	monitorResetChan = make(chan struct{}, 1)
+	resourceStatus = make(map[string]bool)
+	statusMutex sync.Mutex
 )
 
 // ResetMonitorLoop sends a signal to reset the monitor loop, breaking any current sleep.
@@ -43,8 +45,23 @@ func monitorLoop() {
 			if err := storage.SaveCheck(res); err != nil {
 				log.Println("save error:", err)
 			}
-			if !res.Status && t.Subscribed {
-				notifyDown(t.Name)
+			if t.Subscribed {
+				currentStatus := res.Status
+				statusMutex.Lock()
+				previousStatus, ok := resourceStatus[t.Name]
+				if !ok {
+					previousStatus = true
+				}
+				if !currentStatus && previousStatus {
+					log.Printf("Resource '%s' is down, sending notification.", t.Name)
+					notifyDown(t.Name)
+				} else if currentStatus && !previousStatus {
+					log.Printf("Resource '%s' is back up, sending notification.", t.Name)
+					notifyUp(t.Name)
+				}
+
+				resourceStatus[t.Name] = currentStatus
+				statusMutex.Unlock()
 			}
 		}
 
