@@ -227,6 +227,11 @@ func SubscribeTarget(id int) error {
 	return err
 }
 
+func UnsubscribeTarget(id int) error {
+	_, err := db.Exec("UPDATE targets SET subscribed = 0 WHERE id = ?", id)
+	return err
+}
+
 func ClearChecks(target string) error {
 	_, err := db.Exec("DELETE FROM checks WHERE target = ?", target)
 	return err
