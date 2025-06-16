@@ -16,7 +16,7 @@ COPY . .
 # The -o flag sets the output file name
 # CGO_ENABLED=0 is important for creating a statically linked binary
 # that can run in a minimal container without glibc
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/uptime
 
 # Stage 2: Create the final, lightweight image
 FROM alpine:latest
