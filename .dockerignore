@@ -1,0 +1,29 @@
+# Git files
+.git
+.gitignore
+README.md
+
+# Node modules (will be installed in Docker)
+frontend/node_modules
+
+# Database files
+*.db
+
+# Build artifacts
+frontend/dist
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Reference directory
+REFERNCE/

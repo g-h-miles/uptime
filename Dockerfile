@@ -1,4 +1,21 @@
-# Stage 1: Build the Go binary
+# Stage 1: Build the frontend
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY frontend/package*.json frontend/pnpm-lock.yaml ./
+
+# Install frontend dependencies
+RUN npm install -g pnpm && pnpm install
+
+# Copy frontend source code
+COPY frontend/ .
+
+# Build the frontend
+RUN pnpm run build
+
+# Stage 2: Build the Go binary
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies for CGO
@@ -18,7 +35,7 @@ COPY . .
 # Build the Go app with CGO enabled
 RUN go build -o main ./cmd/uptime
 
-# Stage 2: Create the final, lightweight image
+# Stage 3: Create the final, lightweight image
 FROM alpine:latest
 
 # Install runtime dependencies for sqlite3
@@ -28,6 +45,9 @@ WORKDIR /root/
 
 # Copy the pre-built binary from the builder stage
 COPY --from=builder /app/main .
+
+# Copy the built frontend assets
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Declare a volume for the database
 VOLUME /root/
