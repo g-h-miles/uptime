@@ -189,8 +189,8 @@ func DeleteTarget(id int) error {
 
 // LastChecks returns all checks within timeframe hours
 func LastChecks(hours int) ([]probes.Result, error) {
-	// For now, return all checks to debug the issue
-	rows, err := db.Query(`SELECT target, type, status, duration, checked_at, message FROM checks ORDER BY checked_at DESC LIMIT 100`)
+	start := time.Now().Add(-time.Duration(hours) * time.Hour)
+	rows, err := db.Query(`SELECT target, type, status, duration, checked_at, message FROM checks WHERE checked_at >= ? ORDER BY checked_at DESC`, start)
 	if err != nil {
 		return nil, err
 	}
