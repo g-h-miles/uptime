@@ -16,8 +16,8 @@ export interface Service {
   id: string;
   name: string;
   url: string;
-  type: 'http' | 'postgres' | 'redis';
-  status: 'up' | 'down' | 'degraded';
+  type: "http" | "postgres" | "redis";
+  status: "up" | "down" | "degraded";
   responseTime: number;
   uptime: number;
   lastChecked: Date;
@@ -25,7 +25,7 @@ export interface Service {
   history: Array<{
     timestamp: Date;
     responseTime: number;
-    status: 'up' | 'down' | 'degraded';
+    status: "up" | "down" | "degraded";
   }>;
 }
 
@@ -33,9 +33,10 @@ export interface TargetInfo {
   id: number;
   name: string;
   url: string;
-  type: 'http' | 'postgres' | 'redis';
+  type: "http" | "postgres" | "redis";
   username?: string;
   password?: string;
+  subscribed?: boolean;
 }
 
 export interface ApiResponse<T> {

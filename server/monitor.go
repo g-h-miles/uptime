@@ -39,9 +39,12 @@ func monitorLoop() {
 
 		freq := GetFrequency()
 		for _, t := range targets {
-			res := t.Check()
+			res := t.Probe.Check()
 			if err := storage.SaveCheck(res); err != nil {
 				log.Println("save error:", err)
+			}
+			if !res.Status && t.Subscribed {
+				notifyDown(t.Name)
 			}
 		}
 

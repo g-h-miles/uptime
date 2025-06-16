@@ -12,6 +12,11 @@ func Run() error {
 	if err := storage.Init(); err != nil {
 		return err
 	}
+	if s, err := storage.GetSettings(); err == nil {
+		mu.Lock()
+		settings = &Settings{Frequency: s.Frequency, TimeframeHours: s.TimeframeHours}
+		mu.Unlock()
+	}
 	StartMonitoring()
 
 	mux := http.NewServeMux()

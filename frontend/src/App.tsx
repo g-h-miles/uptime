@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from "react";
 import {
   Globe,
   Database,
@@ -11,21 +11,21 @@ import {
   Trash2,
   Edit2,
   MoreHorizontal,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
-import { useChecks, useSettings, useTargets } from '@/hooks/useApi';
-import { TargetInfo } from '@/types';
-import { formatDuration, getStatusBgColor, cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { useChecks, useSettings, useTargets } from "@/hooks/useApi";
+import { TargetInfo } from "@/types";
+import { formatDuration, getStatusBgColor, cn } from "@/lib/utils";
+import { format } from "date-fns";
 import {
   LineChart,
   Line,
@@ -34,14 +34,14 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
+} from "recharts";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { AddOrEditServiceDialog } from '@/AddOrEditServiceDialog';
+} from "@/components/ui/dropdown-menu";
+import { AddOrEditServiceDialog } from "@/AddOrEditServiceDialog";
 
 function App() {
   const {
@@ -52,6 +52,9 @@ function App() {
     addTarget,
     updateTarget,
     deleteTarget,
+    clearChecks,
+    subscribeTarget,
+    testTelegram,
   } = useTargets();
   const {
     settings,
@@ -78,11 +81,11 @@ function App() {
   const services = useMemo(() => {
     return targets.map((target) => {
       const targetChecks = checks.filter(
-        (c) => c.target === target.url || c.target === target.name
+        (c) => c.target === target.url || c.target === target.name,
       );
       const sortedChecks = targetChecks.sort(
         (a, b) =>
-          new Date(b.checkedAt).getTime() - new Date(a.checkedAt).getTime()
+          new Date(b.checkedAt).getTime() - new Date(a.checkedAt).getTime(),
       );
       const latestCheck = sortedChecks[0];
       const upChecks = targetChecks.filter((c) => c.status).length;
@@ -100,18 +103,18 @@ function App() {
         latestCheck,
         uptime,
         avgResponseTime,
-        status: latestCheck?.status ? 'up' : 'down',
+        status: latestCheck?.status ? "up" : "down",
       };
     });
   }, [targets, checks]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'http':
+      case "http":
         return <Globe className="h-4 w-4" />;
-      case 'postgres':
+      case "postgres":
         return <Database className="h-4 w-4" />;
-      case 'redis':
+      case "redis":
         return <Server className="h-4 w-4" />;
       default:
         return <Server className="h-4 w-4" />;
@@ -120,9 +123,9 @@ function App() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'up':
+      case "up":
         return <CheckCircle className="h-4 w-4" />;
-      case 'down':
+      case "down":
         return <AlertCircle className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
@@ -134,10 +137,10 @@ function App() {
       ? (
           services.reduce((sum, s) => sum + s.uptime, 0) / services.length
         ).toFixed(2)
-      : '0';
+      : "0";
 
-  const servicesUp = services.filter((s) => s.status === 'up').length;
-  const servicesDown = services.filter((s) => s.status === 'down').length;
+  const servicesUp = services.filter((s) => s.status === "up").length;
+  const servicesDown = services.filter((s) => s.status === "down").length;
 
   const handleSaveSettings = async () => {
     await updateSettings(tempSettings);
@@ -145,7 +148,7 @@ function App() {
   };
 
   const handleDeleteService = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this service?')) {
+    if (window.confirm("Are you sure you want to delete this service?")) {
       await deleteTarget(id);
     }
   };
@@ -155,7 +158,7 @@ function App() {
   };
 
   const handleAddNew = () => {
-    setEditingTarget({ id: 0, name: '', url: '', type: 'http' });
+    setEditingTarget({ id: 0, name: "", url: "", type: "http" });
   };
 
   const handleCloseDialog = () => {
@@ -271,6 +274,9 @@ function App() {
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleSaveSettings}>Save Settings</Button>
+                <Button variant="outline" onClick={testTelegram}>
+                  Test Telegram
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowSettings(false)}
@@ -355,6 +361,20 @@ function App() {
                           <span>Edit</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          onClick={() => clearChecks(service.url)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Clear</span>
+                        </DropdownMenuItem>
+                        {!service.subscribed && (
+                          <DropdownMenuItem
+                            onClick={() => subscribeTarget(service.id)}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            <span>Subscribe</span>
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
                           onClick={() => handleDeleteService(service.id)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -373,9 +393,9 @@ function App() {
                   <div>
                     <p className="text-muted-foreground">Response Time</p>
                     <p className="font-semibold">
-                      {service.status === 'up'
+                      {service.status === "up"
                         ? formatDuration(service.avgResponseTime)
-                        : 'N/A'}
+                        : "N/A"}
                     </p>
                   </div>
                   <div>
@@ -390,9 +410,9 @@ function App() {
                       {service.latestCheck
                         ? format(
                             new Date(service.latestCheck.checkedAt),
-                            'HH:mm:ss'
+                            "HH:mm:ss",
                           )
-                        : 'Never'}
+                        : "Never"}
                     </p>
                   </div>
                 </div>
@@ -405,7 +425,7 @@ function App() {
                           .slice(-20)
                           .reverse()
                           .map((check) => ({
-                            time: format(new Date(check.checkedAt), 'HH:mm'),
+                            time: format(new Date(check.checkedAt), "HH:mm"),
                             responseTime: check.status ? check.duration : null,
                           }))}
                       >
@@ -414,20 +434,20 @@ function App() {
                         <YAxis
                           fontSize={10}
                           tickFormatter={(value) => `${value}ms`}
-                          domain={[0, 'dataMax + 10']}
+                          domain={[0, "dataMax + 10"]}
                         />
                         <Tooltip
                           labelFormatter={(value) => `Time: ${value}`}
                           formatter={(value: number) => {
-                            if (value === null) return ['Down', 'Status'];
-                            return [formatDuration(value), 'Response Time'];
+                            if (value === null) return ["Down", "Status"];
+                            return [formatDuration(value), "Response Time"];
                           }}
                         />
                         <Line
                           type="monotone"
                           dataKey="responseTime"
                           stroke={
-                            service.status === 'down' ? '#ef4444' : '#8884d8'
+                            service.status === "down" ? "#ef4444" : "#8884d8"
                           }
                           strokeWidth={2}
                           dot={false}
