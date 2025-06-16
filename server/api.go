@@ -28,6 +28,9 @@ func registerAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/checks", handleChecks)
 	mux.HandleFunc("/api/settings", handleSettings)
 	mux.HandleFunc("/api/targets", handleTargets)
+	mux.HandleFunc("/api/targets/clear", handleClear)
+	mux.HandleFunc("/api/targets/subscribe", handleSubscribe)
+	mux.HandleFunc("/api/test-telegram", handleTestTelegram)
 }
 
 func handleChecks(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +76,7 @@ func handleSettings(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		settings = &s
 		mu.Unlock()
+		_ = storage.UpdateSettings(s.Frequency, s.TimeframeHours)
 		ResetMonitorLoop() // Trigger an immediate loop reset
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -160,6 +164,50 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func handleClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	target := r.URL.Query().Get("target")
+	if target == "" {
+		http.Error(w, "missing target", http.StatusBadRequest)
+		return
+	}
+	if err := storage.ClearChecks(target); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleSubscribe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	idStr := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	if err := storage.SubscribeTarget(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleTestTelegram(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	testTelegram()
+	w.WriteHeader(http.StatusOK)
 }
 
 // Settings for monitor frequency and timeframe
