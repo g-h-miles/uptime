@@ -10,6 +10,8 @@ import {
   Plus,
   Trash2,
   Edit2,
+  Eraser,
+  BellOff,
   MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +56,7 @@ function App() {
     deleteTarget,
     clearChecks,
     subscribeTarget,
+    unsubscribeTarget,
     testTelegram,
   } = useTargets();
   const {
@@ -363,10 +366,17 @@ function App() {
                         <DropdownMenuItem
                           onClick={() => clearChecks(service.url)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
+                          <Eraser className="mr-2 h-4 w-4" />
                           <span>Clear</span>
                         </DropdownMenuItem>
-                        {!service.subscribed && (
+                        {service.subscribed ? (
+                          <DropdownMenuItem
+                            onClick={() => unsubscribeTarget(service.id)}
+                          >
+                            <BellOff className="mr-2 h-4 w-4" />
+                            <span>Unsubscribe</span>
+                          </DropdownMenuItem>
+                        ) : (
                           <DropdownMenuItem
                             onClick={() => subscribeTarget(service.id)}
                           >
@@ -377,8 +387,8 @@ function App() {
                         <DropdownMenuItem
                           onClick={() => handleDeleteService(service.id)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Delete</span>
+                          <Trash2 className="mr-2 h-4 w-4 text-red-600" />
+                          <span className="text-red-600">Delete</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -422,10 +432,15 @@ function App() {
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={service.checks
-                          .slice(-20)
+                          .slice()
                           .reverse()
                           .map((check) => ({
-                            time: format(new Date(check.checkedAt), "HH:mm"),
+                            time: format(
+                              new Date(check.checkedAt),
+                              settings.timeframeHours > 24
+                                ? "MM-dd HH:mm"
+                                : "HH:mm",
+                            ),
                             responseTime: check.status ? check.duration : null,
                           }))}
                       >

@@ -30,6 +30,7 @@ func registerAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/targets", handleTargets)
 	mux.HandleFunc("/api/targets/clear", handleClear)
 	mux.HandleFunc("/api/targets/subscribe", handleSubscribe)
+	mux.HandleFunc("/api/targets/unsubscribe", handleUnsubscribe)
 	mux.HandleFunc("/api/test-telegram", handleTestTelegram)
 }
 
@@ -195,6 +196,24 @@ func handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := storage.SubscribeTarget(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleUnsubscribe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	idStr := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	if err := storage.UnsubscribeTarget(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

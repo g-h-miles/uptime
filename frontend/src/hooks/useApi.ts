@@ -179,6 +179,15 @@ export function useTargets() {
     }
   };
 
+  const unsubscribeTarget = async (id: number) => {
+    try {
+      await fetch(`/api/targets/unsubscribe?id=${id}`, { method: "POST" });
+      await fetchTargets();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
+  };
+
   const testTelegram = async () => {
     await fetch("/api/test-telegram", { method: "POST" });
   };
@@ -197,6 +206,7 @@ export function useTargets() {
     deleteTarget,
     clearChecks,
     subscribeTarget,
+    unsubscribeTarget,
     testTelegram,
   };
 }
