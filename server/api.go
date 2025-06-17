@@ -10,6 +10,8 @@ import (
 
 	"uptime/probes"
 	"uptime/storage"
+
+	"github.com/g-h-miles/httpmux"
 )
 
 var mu sync.RWMutex
@@ -24,14 +26,18 @@ type CheckResponse struct {
 	Message   string    `json:"message"`
 }
 
-func registerAPI(mux *http.ServeMux) {
-	mux.HandleFunc("/api/checks", handleChecks)
-	mux.HandleFunc("/api/settings", handleSettings)
-	mux.HandleFunc("/api/targets", handleTargets)
-	mux.HandleFunc("/api/targets/clear", handleClear)
-	mux.HandleFunc("/api/targets/subscribe", handleSubscribe)
-	mux.HandleFunc("/api/targets/unsubscribe", handleUnsubscribe)
-	mux.HandleFunc("/api/test-telegram", handleTestTelegram)
+func registerAPI(mux *httpmux.Router) {
+	mux.GET("/checks", handleChecks)
+	mux.GET("/settings", handleSettings)
+	mux.POST("/settings", handleSettings)
+	mux.GET("/targets", handleTargets)
+	mux.POST("/targets", handleTargets)
+	mux.PUT("/targets", handleTargets)
+	mux.DELETE("/targets", handleTargets)
+	mux.POST("/targets/clear", handleClear)
+	mux.POST("/targets/subscribe", handleSubscribe)
+	mux.POST("/targets/unsubscribe", handleUnsubscribe)
+	mux.POST("/test-telegram", handleTestTelegram)
 }
 
 func handleChecks(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from 'react';
 import {
   Globe,
   Database,
@@ -13,21 +13,23 @@ import {
   Eraser,
   BellOff,
   MoreHorizontal,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
-import { useChecks, useSettings, useTargets } from "@/hooks/useApi";
-import { TargetInfo } from "@/types";
-import { formatDuration, getStatusBgColor, cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { useChecks, useSettings, useTargets } from '@/hooks/useApi';
+import { TargetInfo } from '@/types';
+import { formatDuration, getStatusBgColor, cn } from '@/lib/utils';
+import { format } from 'date-fns';
 import {
   LineChart,
   Line,
@@ -36,16 +38,28 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from "recharts";
+} from 'recharts';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { AddOrEditServiceDialog } from "@/AddOrEditServiceDialog";
+} from '@/components/ui/dropdown-menu';
+import { AddOrEditServiceDialog } from '@/AddOrEditServiceDialog';
 
 function App() {
+  const {
+    settings,
+    loading: settingsLoading,
+    error: settingsError,
+    updateSettings,
+  } = useSettings();
+  const {
+    checks,
+    setChecks,
+    loading: checksLoading,
+    error: checksError,
+  } = useChecks(settings.timeframeHours, settings.frequency);
   const {
     targets,
     loading: targetsLoading,
@@ -57,19 +71,9 @@ function App() {
     clearChecks,
     subscribeTarget,
     unsubscribeTarget,
+    reorderTargets,
     testTelegram,
-  } = useTargets();
-  const {
-    settings,
-    loading: settingsLoading,
-    error: settingsError,
-    updateSettings,
-  } = useSettings();
-  const {
-    checks,
-    loading: checksLoading,
-    error: checksError,
-  } = useChecks(settings.timeframeHours, settings.frequency);
+  } = useTargets(checks, setChecks);
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
   const [editingTarget, setEditingTarget] = useState<TargetInfo | null>(null);
@@ -84,40 +88,49 @@ function App() {
   const services = useMemo(() => {
     return targets.map((target) => {
       const targetChecks = checks.filter(
-        (c) => c.target === target.url || c.target === target.name,
+        (c) => c.target === target.url || c.target === target.name
       );
       const sortedChecks = targetChecks.sort(
         (a, b) =>
-          new Date(b.checkedAt).getTime() - new Date(a.checkedAt).getTime(),
+          new Date(b.checkedAt).getTime() - new Date(a.checkedAt).getTime()
       );
       const latestCheck = sortedChecks[0];
-      const upChecks = targetChecks.filter((c) => c.status).length;
+      const upChecks = targetChecks.filter((c) => c.status);
       const uptime =
-        targetChecks.length > 0 ? (upChecks / targetChecks.length) * 100 : 0;
-      const avgResponseTime =
         targetChecks.length > 0
-          ? targetChecks.reduce((sum, c) => sum + c.duration, 0) /
-            targetChecks.length
+          ? (upChecks.length / targetChecks.length) * 100
           : 0;
+
+      const responseTimes = upChecks
+        .map((c) => c.duration)
+        .sort((a, b) => a - b);
+      let medianResponseTime = 0;
+      if (responseTimes.length > 0) {
+        const mid = Math.floor(responseTimes.length / 2);
+        medianResponseTime =
+          responseTimes.length % 2 !== 0
+            ? responseTimes[mid]
+            : (responseTimes[mid - 1] + responseTimes[mid]) / 2;
+      }
 
       return {
         ...target,
         checks: sortedChecks,
         latestCheck,
         uptime,
-        avgResponseTime,
-        status: latestCheck?.status ? "up" : "down",
+        medianResponseTime,
+        status: latestCheck?.status ? 'up' : 'down',
       };
     });
   }, [targets, checks]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case "http":
+      case 'http':
         return <Globe className="h-4 w-4" />;
-      case "postgres":
+      case 'postgres':
         return <Database className="h-4 w-4" />;
-      case "redis":
+      case 'redis':
         return <Server className="h-4 w-4" />;
       default:
         return <Server className="h-4 w-4" />;
@@ -126,9 +139,9 @@ function App() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "up":
+      case 'up':
         return <CheckCircle className="h-4 w-4" />;
-      case "down":
+      case 'down':
         return <AlertCircle className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
@@ -140,10 +153,10 @@ function App() {
       ? (
           services.reduce((sum, s) => sum + s.uptime, 0) / services.length
         ).toFixed(2)
-      : "0";
+      : '0';
 
-  const servicesUp = services.filter((s) => s.status === "up").length;
-  const servicesDown = services.filter((s) => s.status === "down").length;
+  const servicesUp = services.filter((s) => s.status === 'up').length;
+  const servicesDown = services.filter((s) => s.status === 'down').length;
 
   const handleSaveSettings = async () => {
     await updateSettings(tempSettings);
@@ -151,7 +164,7 @@ function App() {
   };
 
   const handleDeleteService = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this service?")) {
+    if (window.confirm('Are you sure you want to delete this service?')) {
       await deleteTarget(id);
     }
   };
@@ -161,7 +174,7 @@ function App() {
   };
 
   const handleAddNew = () => {
-    setEditingTarget({ id: 0, name: "", url: "", type: "http" });
+    setEditingTarget({ id: 0, name: '', url: '', type: 'http' });
   };
 
   const handleCloseDialog = () => {
@@ -206,14 +219,23 @@ function App() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Uptime Monitor</h1>
-            <p className="text-gray-600 mt-1">
-              Monitor your websites, databases, and services
-            </p>
-          </div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
+            <img
+              src={'./logo.svg'}
+              alt="Uptime Monitor Logo"
+              className="h-20 w-20"
+            />
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Uptime Monitor
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Monitor your websites, databases, and services
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:flex md:w-auto">
             <Button onClick={handleAddNew}>
               <Plus className="mr-2 h-4 w-4" />
               Add Service
@@ -310,10 +332,10 @@ function App() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Services Up</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <CheckCircle className="h-4 w-4 text-[#6fc276]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-[#6fc276]">
                 {servicesUp}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -339,7 +361,7 @@ function App() {
 
         {/* Services Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {services.map((service) => (
+          {services.map((service, index) => (
             <Card key={service.id} className="overflow-hidden">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -362,6 +384,20 @@ function App() {
                         <DropdownMenuItem onClick={() => handleEdit(service)}>
                           <Edit2 className="mr-2 h-4 w-4" />
                           <span>Edit</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => reorderTargets(service.id, 'up')}
+                          disabled={index === 0}
+                        >
+                          <ArrowUp className="mr-2 h-4 w-4" />
+                          <span>Move up</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => reorderTargets(service.id, 'down')}
+                          disabled={index === services.length - 1}
+                        >
+                          <ArrowDown className="mr-2 h-4 w-4" />
+                          <span>Move down</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => clearChecks(service.url)}
@@ -403,9 +439,9 @@ function App() {
                   <div>
                     <p className="text-muted-foreground">Response Time</p>
                     <p className="font-semibold">
-                      {service.status === "up"
-                        ? formatDuration(service.avgResponseTime)
-                        : "N/A"}
+                      {service.status === 'up'
+                        ? formatDuration(service.medianResponseTime)
+                        : 'N/A'}
                     </p>
                   </div>
                   <div>
@@ -420,9 +456,9 @@ function App() {
                       {service.latestCheck
                         ? format(
                             new Date(service.latestCheck.checkedAt),
-                            "HH:mm:ss",
+                            'HH:mm:ss'
                           )
-                        : "Never"}
+                        : 'Never'}
                     </p>
                   </div>
                 </div>
@@ -438,10 +474,11 @@ function App() {
                             time: format(
                               new Date(check.checkedAt),
                               settings.timeframeHours > 24
-                                ? "MM-dd HH:mm"
-                                : "HH:mm",
+                                ? 'MM-dd HH:mm'
+                                : 'HH:mm'
                             ),
-                            responseTime: check.status ? check.duration : null,
+                            upTime: check.status ? check.duration : null,
+                            downTime: check.status ? null : 0,
                           }))}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -449,24 +486,43 @@ function App() {
                         <YAxis
                           fontSize={10}
                           tickFormatter={(value) => `${value}ms`}
-                          domain={[0, "dataMax + 10"]}
+                          domain={[0, 'dataMax + 10']}
                         />
                         <Tooltip
                           labelFormatter={(value) => `Time: ${value}`}
-                          formatter={(value: number) => {
-                            if (value === null) return ["Down", "Status"];
-                            return [formatDuration(value), "Response Time"];
+                          formatter={(
+                            value: number,
+                            name: string,
+                            props: any
+                          ) => {
+                            const { payload } = props;
+                            if (payload.downTime !== null) {
+                              return ['Down', 'Status'];
+                            }
+                            if (payload.upTime !== null) {
+                              return [
+                                formatDuration(payload.upTime),
+                                'Response Time',
+                              ];
+                            }
+                            return null;
                           }}
                         />
                         <Line
                           type="monotone"
-                          dataKey="responseTime"
-                          stroke={
-                            service.status === "down" ? "#ef4444" : "#8884d8"
-                          }
+                          dataKey="upTime"
+                          stroke="#b19cd9"
                           strokeWidth={2}
                           dot={false}
-                          connectNulls={false}
+                          connectNulls
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="downTime"
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                          dot={false}
+                          connectNulls
                         />
                       </LineChart>
                     </ResponsiveContainer>

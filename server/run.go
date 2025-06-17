@@ -3,9 +3,13 @@ package server
 import (
 	"log"
 	"net/http"
-	"path/filepath"
 
+	"os"
+	"uptime"
 	"uptime/storage"
+
+	"github.com/g-h-miles/httpmux"
+	mw "github.com/g-h-miles/std-middleware"
 )
 
 func Run() error {
@@ -19,12 +23,23 @@ func Run() error {
 	}
 	StartMonitoring()
 
-	mux := http.NewServeMux()
-	registerAPI(mux)
+	spaHandler := mw.SPA(mw.SPAConfig{
+		DistFS:    uptime.FrontEndDist,
+		DistPath:  uptime.FrontEndDistPath,
+		IsDevMode: os.Getenv("ENV") == "dev",
+	})
 
-	dist := filepath.Join("frontend", "dist")
-	mux.Handle("/", http.FileServer(http.Dir(dist)))
+	multi := httpmux.NewMultiRouter()
+	api := httpmux.NewServeMux()
+	registerAPI(api)
+	multi.Group("/api", api)
+
+	// dist := filepath.Join("frontend", "dist")
+	frontend := httpmux.NewServeMux()
+	frontend.GET("/{everything...}", spaHandler(nil))
+
+	multi.Default(frontend)
 
 	log.Println("listening on :8080")
-	return http.ListenAndServe(":8080", mux)
+	return http.ListenAndServe(":8080", multi)
 }

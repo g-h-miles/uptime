@@ -17,10 +17,11 @@ type Postgres struct {
 
 func (p Postgres) Check() Result {
 	start := time.Now()
-	// Construct DSN from parts
-	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", p.User, p.Pass, p.Addr, p.DB)
-	if p.User == "" { // Handle case with no auth
-		dsn = fmt.Sprintf("postgres://%s/%s?sslmode=disable", p.Addr, p.DB)
+	var dsn string
+	if p.User != "" && p.Pass != "" {
+		dsn = fmt.Sprintf("postgres://%s:%s@%s", p.User, p.Pass, p.Addr)
+	} else {
+		dsn = fmt.Sprintf("postgres://%s", p.Addr)
 	}
 
 	db, err := sql.Open("postgres", dsn)

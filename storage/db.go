@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"os"
 	"strings"
 	"time"
 
@@ -22,7 +23,11 @@ type MonitorTarget struct {
 
 func Init() error {
 	var err error
-	db, err = sql.Open("sqlite3", "/persistent/monitor.db")
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "persistent/monitor.db"
+	}
+	db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return err
 	}

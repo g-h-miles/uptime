@@ -11,7 +11,7 @@ export const getStatusBgColor = (status: string, isMuted = false) => {
   }
   switch (status) {
     case 'up':
-      return 'bg-green-500 text-white';
+      return 'bg-[#6fc276] text-white';
     case 'down':
       return 'bg-red-500 text-white';
     case 'degraded':
