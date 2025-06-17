@@ -74,19 +74,19 @@ export function AddOrEditServiceDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
+          <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="md:text-right">
               Name
             </Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="col-span-3"
+              className="md:col-span-3"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="type" className="text-right">
+          <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+            <Label htmlFor="type" className="md:text-right">
               Type
             </Label>
             <Select
@@ -95,39 +95,39 @@ export function AddOrEditServiceDialog({
               onChange={(e) =>
                 setType(e.target.value as 'http' | 'postgres' | 'redis')
               }
-              className="col-span-3"
+              className="md:col-span-3"
             >
               <option value="http">HTTP</option>
               <option value="postgres">Postgres</option>
               <option value="redis">Redis</option>
             </Select>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="url" className="text-right">
+          <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+            <Label htmlFor="url" className="md:text-right">
               URL
             </Label>
             <Input
               id="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="col-span-3"
+              className="md:col-span-3"
             />
           </div>
           {showCredentials && (
             <>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="username" className="text-right">
+              <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+                <Label htmlFor="username" className="md:text-right">
                   Username
                 </Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="col-span-3"
+                  className="md:col-span-3"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="password" className="text-right">
+              <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+                <Label htmlFor="password" className="md:text-right">
                   Password
                 </Label>
                 <Input
@@ -135,7 +135,7 @@ export function AddOrEditServiceDialog({
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="col-span-3"
+                  className="md:col-span-3"
                   placeholder={
                     isEditMode ? 'Leave blank to keep unchanged' : ''
                   }

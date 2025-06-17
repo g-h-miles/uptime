@@ -431,7 +431,22 @@ function App() {
                   </div>
                 </div>
                 <CardDescription className="font-mono text-sm">
-                  {service.url}
+                  {service.type === 'http' ? (
+                    <a
+                      href={
+                        service.url.startsWith('http')
+                          ? service.url
+                          : `https://${service.url}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      {service.url}
+                    </a>
+                  ) : (
+                    service.url
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
