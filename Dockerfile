@@ -16,7 +16,8 @@ COPY frontend/ .
 RUN pnpm run build
 
 # Stage 2: Build the Go binary
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24-alpine3.18 AS builder
+
 
 # Install build dependencies for CGO
 RUN apk add --no-cache build-base sqlite-dev
