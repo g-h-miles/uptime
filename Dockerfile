@@ -19,7 +19,7 @@ RUN pnpm run build
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies for CGO
-RUN apk add --no-cache gcc musl-dev sqlite-dev
+RUN apk add --no-cache build-base sqlite-dev
 
 WORKDIR /app
 
@@ -42,7 +42,7 @@ RUN go build -o main ./cmd/uptime
 FROM alpine:latest
 
 # Install runtime dependencies for sqlite3
-RUN apk add --no-cache sqlite
+RUN apk add --no-cache sqlite-libs
 
 WORKDIR /root/
 
