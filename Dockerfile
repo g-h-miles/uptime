@@ -39,7 +39,7 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 RUN go build -o main ./cmd/uptime
 
 # Stage 3: Create the final, lightweight image
-FROM alpine:latest
+FROM alpine:3.18
 
 # Install runtime dependencies for sqlite3
 RUN apk add --no-cache sqlite-libs
