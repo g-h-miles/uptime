@@ -16,8 +16,7 @@ COPY frontend/ .
 RUN pnpm run build
 
 # Stage 2: Build the Go binary
-FROM golang:1.24-alpine3.18 AS builder
-
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies for CGO
 RUN apk add --no-cache build-base sqlite-dev
@@ -40,7 +39,7 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 RUN go build -o main ./cmd/uptime
 
 # Stage 3: Create the final, lightweight image
-FROM alpine:3.18
+FROM alpine:latest
 
 # Install runtime dependencies for sqlite3
 RUN apk add --no-cache sqlite-libs
