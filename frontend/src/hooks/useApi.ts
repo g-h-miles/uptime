@@ -113,7 +113,23 @@ export function useTargets(
         throw new Error('Failed to fetch targets');
       }
       const data = await response.json();
-      setTargets(data || []);
+
+      // Apply saved order from localStorage
+      const savedOrder = localStorage.getItem('targetOrder');
+      if (savedOrder) {
+        try {
+          const orderIds = JSON.parse(savedOrder);
+          const orderedTargets = orderIds
+            .map((id: number) => data.find((t: TargetInfo) => t.id === id))
+            .filter(Boolean)
+            .concat(data.filter((t: TargetInfo) => !orderIds.includes(t.id)));
+          setTargets(orderedTargets);
+        } catch {
+          setTargets(data || []);
+        }
+      } else {
+        setTargets(data || []);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -199,7 +215,12 @@ export function useTargets(
     } else {
       newTargets.splice(Math.min(newTargets.length, index + 1), 0, target);
     }
+
     setTargets(newTargets);
+
+    // Save order to localStorage
+    const orderIds = newTargets.map((t) => t.id);
+    localStorage.setItem('targetOrder', JSON.stringify(orderIds));
   };
 
   const subscribeTarget = async (id: number) => {

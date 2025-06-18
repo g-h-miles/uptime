@@ -297,14 +297,24 @@ function App() {
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSaveSettings}>Save Settings</Button>
-                <Button variant="outline" onClick={testTelegram}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+                <Button
+                  onClick={handleSaveSettings}
+                  className="w-full sm:w-auto"
+                >
+                  Save Settings
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={testTelegram}
+                  className="w-full sm:w-auto"
+                >
                   Test Telegram
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowSettings(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
@@ -430,7 +440,7 @@ function App() {
                     </DropdownMenu>
                   </div>
                 </div>
-                <CardDescription className="font-mono text-sm">
+                <CardDescription className="font-mono text-sm break-all">
                   {service.type === 'http' ? (
                     <a
                       href={
@@ -442,7 +452,7 @@ function App() {
                       rel="noopener noreferrer"
                       className="underline"
                     >
-                      {service.url}
+                      {service.url.replace(/^https?:\/\//, '')}
                     </a>
                   ) : (
                     service.url
@@ -450,7 +460,7 @@ function App() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Response Time</p>
                     <p className="font-semibold">

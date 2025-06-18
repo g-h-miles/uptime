@@ -53,10 +53,19 @@ export function AddOrEditServiceDialog({
   }, [existingTarget, isEditMode]);
 
   const handleSave = () => {
+    let normalizedUrl = url;
+    if (
+      type === 'http' &&
+      !normalizedUrl.startsWith('http://') &&
+      !normalizedUrl.startsWith('https://')
+    ) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+
     onSave({
       id: existingTarget?.id || 0,
       name,
-      url,
+      url: normalizedUrl,
       type,
       username,
       password,
