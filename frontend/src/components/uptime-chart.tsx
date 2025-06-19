@@ -106,7 +106,7 @@ export function UptimeChart({
   const getBarColor = (status: string) => {
     switch (status) {
       case 'up':
-        return '#10b981'; // green-500
+        return '#6fc276'; // green-500
       case 'down':
         return '#ef4444'; // red-500
       case 'partial':
