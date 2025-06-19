@@ -27,3 +27,16 @@ export const formatDuration = (ms: number) => {
   }
   return `${(ms / 1000).toFixed(2)}s`;
 };
+
+export const getMedianResponseTime = (responseTimes: number[]) => {
+  let medianResponseTime = 0;
+  if (responseTimes.length > 0) {
+    const mid = Math.floor(responseTimes.length / 2);
+    medianResponseTime =
+      responseTimes.length % 2 !== 0
+        ? responseTimes[mid]
+        : (responseTimes[mid - 1] + responseTimes[mid]) / 2;
+  }
+
+  return medianResponseTime;
+};

@@ -8,13 +8,11 @@ import {
   Clock,
   Settings as SettingsIcon,
   Plus,
-  Trash2,
-  Edit2,
-  Eraser,
-  BellOff,
-  MoreHorizontal,
-  ArrowUp,
-  ArrowDown,
+  ChartLine,
+  Barcode,
+  LineChart,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,24 +26,21 @@ import { Badge } from '@/components/ui/badge';
 
 import { useChecks, useSettings, useTargets } from '@/hooks/useApi';
 import { TargetInfo } from '@/types';
-import { formatDuration, getStatusBgColor, cn } from '@/lib/utils';
+import {
+  formatDuration,
+  getStatusBgColor,
+  cn,
+  getMedianResponseTime,
+} from '@/lib/utils';
 import { format } from 'date-fns';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Settings } from '@/components/settings';
+import { Settings as SettingsType } from '@/types';
 import { AddOrEditServiceDialog } from '@/AddOrEditServiceDialog';
+import { ServiceChart } from '@/components/chart';
+import { UptimeChart } from '@/components/uptime-chart';
+import { Overview } from './components/overview';
+import { ServiceDropdownMenu } from './components/service-menu';
+import { ModeToggle } from './components/theme-toggle';
 
 function App() {
   const {
@@ -59,6 +54,7 @@ function App() {
     setChecks,
     loading: checksLoading,
     error: checksError,
+    refetch: refetchChecks,
   } = useChecks(settings.timeframeHours, settings.frequency);
   const {
     targets,
@@ -77,6 +73,9 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
   const [editingTarget, setEditingTarget] = useState<TargetInfo | null>(null);
+  const [chartTypeMap, setChartTypeMap] = useState<
+    Record<string, 'uptime' | 'response-time'>
+  >({});
 
   const loading = targetsLoading || checksLoading;
   const error = targetsError || checksError;
@@ -104,14 +103,7 @@ function App() {
       const responseTimes = upChecks
         .map((c) => c.duration)
         .sort((a, b) => a - b);
-      let medianResponseTime = 0;
-      if (responseTimes.length > 0) {
-        const mid = Math.floor(responseTimes.length / 2);
-        medianResponseTime =
-          responseTimes.length % 2 !== 0
-            ? responseTimes[mid]
-            : (responseTimes[mid - 1] + responseTimes[mid]) / 2;
-      }
+      const medianResponseTime = getMedianResponseTime(responseTimes);
 
       return {
         ...target,
@@ -158,8 +150,12 @@ function App() {
   const servicesUp = services.filter((s) => s.status === 'up').length;
   const servicesDown = services.filter((s) => s.status === 'down').length;
 
-  const handleSaveSettings = async () => {
-    await updateSettings(tempSettings);
+  const handleSaveSettings = async (newSettings: SettingsType) => {
+    console.log('App received settings to save:', newSettings);
+    await updateSettings(newSettings);
+    setShowSettings(false);
+  };
+  const handleCancelSettings = () => {
     setShowSettings(false);
   };
 
@@ -190,12 +186,24 @@ function App() {
     handleCloseDialog();
   };
 
+  const getChartType = (serviceId: number) => {
+    return chartTypeMap[serviceId] || 'uptime';
+  };
+
+  const toggleChartType = (serviceId: number) => {
+    const currentType = getChartType(serviceId);
+    setChartTypeMap((prev) => ({
+      ...prev,
+      [serviceId]: currentType === 'uptime' ? 'response' : 'uptime',
+    }));
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center `}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading uptime data...</p>
+          <p className="mt-4 text-muted-foreground">Loading uptime data...</p>
         </div>
       </div>
     );
@@ -203,20 +211,20 @@ function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center `}>
         <div className="text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold text-primary mb-2">
             Error Loading Data
           </h2>
-          <p className="text-gray-600">{error}</p>
+          <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className={`min-h-screen p-6 `}>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -227,16 +235,17 @@ function App() {
               className="h-20 w-20"
             />
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-primary">
                 Uptime Monitor
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-muted-foreground mt-1">
                 Monitor your websites, databases, and services
               </p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 md:flex md:w-auto">
-            <Button onClick={handleAddNew}>
+            <ModeToggle />
+            <Button variant="outline" onClick={handleAddNew}>
               <Plus className="mr-2 h-4 w-4" />
               Add Service
             </Button>
@@ -255,124 +264,26 @@ function App() {
 
         {/* Settings Panel */}
         {showSettings && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-              <CardDescription>
-                Configure monitoring frequency and timeframe
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Frequency (seconds)
-                  </label>
-                  <input
-                    type="number"
-                    value={tempSettings.frequency}
-                    onChange={(e) =>
-                      setTempSettings({
-                        ...tempSettings,
-                        frequency: parseInt(e.target.value) || 60,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Timeframe (hours)
-                  </label>
-                  <input
-                    type="number"
-                    value={tempSettings.timeframeHours}
-                    onChange={(e) =>
-                      setTempSettings({
-                        ...tempSettings,
-                        timeframeHours: parseInt(e.target.value) || 24,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
-                <Button
-                  onClick={handleSaveSettings}
-                  className="w-full sm:w-auto"
-                >
-                  Save Settings
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={testTelegram}
-                  className="w-full sm:w-auto"
-                >
-                  Test Telegram
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowSettings(false)}
-                  className="w-full sm:w-auto"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <Settings
+            settings={settings}
+            onSave={handleSaveSettings}
+            onCancel={handleCancelSettings}
+            onTestTelegram={testTelegram}
+          />
         )}
 
         {/* Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Overall Uptime
-              </CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{overallUptime}%</div>
-              <p className="text-xs text-muted-foreground">
-                Last {settings.timeframeHours} hours
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Services Up</CardTitle>
-              <CheckCircle className="h-4 w-4 text-[#6fc276]" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-[#6fc276]">
-                {servicesUp}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Currently operational
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Services Down
-              </CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {servicesDown}
-              </div>
-              <p className="text-xs text-muted-foreground">Need attention</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Overview
+          overallUptime={overallUptime}
+          servicesUp={servicesUp}
+          servicesDown={servicesDown}
+          timeframeHours={settings.timeframeHours}
+        />
 
         {/* Services Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {services.map((service, index) => (
-            <Card key={service.id} className="overflow-hidden">
+            <Card key={service.id} className="overflow-hidden flex flex-col">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -384,60 +295,18 @@ function App() {
                       {getStatusIcon(service.status)}
                       <span className="ml-1 capitalize">{service.status}</span>
                     </Badge>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleEdit(service)}>
-                          <Edit2 className="mr-2 h-4 w-4" />
-                          <span>Edit</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => reorderTargets(service.id, 'up')}
-                          disabled={index === 0}
-                        >
-                          <ArrowUp className="mr-2 h-4 w-4" />
-                          <span>Move up</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => reorderTargets(service.id, 'down')}
-                          disabled={index === services.length - 1}
-                        >
-                          <ArrowDown className="mr-2 h-4 w-4" />
-                          <span>Move down</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => clearChecks(service.url)}
-                        >
-                          <Eraser className="mr-2 h-4 w-4" />
-                          <span>Clear</span>
-                        </DropdownMenuItem>
-                        {service.subscribed ? (
-                          <DropdownMenuItem
-                            onClick={() => unsubscribeTarget(service.id)}
-                          >
-                            <BellOff className="mr-2 h-4 w-4" />
-                            <span>Unsubscribe</span>
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => subscribeTarget(service.id)}
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            <span>Subscribe</span>
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteService(service.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                          <span className="text-red-600">Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <ServiceDropdownMenu
+                      service={service}
+                      index={index}
+                      totalServices={services.length}
+                      onEdit={handleEdit}
+                      onMoveUp={(id) => reorderTargets(id, 'up')}
+                      onMoveDown={(id) => reorderTargets(id, 'down')}
+                      onClear={clearChecks}
+                      onSubscribe={subscribeTarget}
+                      onUnsubscribe={unsubscribeTarget}
+                      onDelete={handleDeleteService}
+                    />
                   </div>
                 </div>
                 <CardDescription className="font-mono text-sm break-all">
@@ -459,100 +328,43 @@ function App() {
                   )}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-0 flex-1 flex flex-col">
                 <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Response Time</p>
-                    <p className="font-semibold">
-                      {service.status === 'up'
-                        ? formatDuration(service.medianResponseTime)
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Uptime</p>
-                    <p className="font-semibold">
-                      {service.uptime.toFixed(2)}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Last Check</p>
-                    <p className="font-semibold">
-                      {service.latestCheck
-                        ? format(
-                            new Date(service.latestCheck.checkedAt),
-                            'HH:mm:ss'
-                          )
-                        : 'Never'}
-                    </p>
-                  </div>
+                  {/* ... existing stats ... */}
                 </div>
 
                 {service.checks.length > 0 && (
-                  <div className="h-32">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={service.checks
-                          .slice()
-                          .reverse()
-                          .map((check) => ({
-                            time: format(
-                              new Date(check.checkedAt),
-                              settings.timeframeHours > 24
-                                ? 'MM-dd HH:mm'
-                                : 'HH:mm'
-                            ),
-                            upTime: check.status ? check.duration : null,
-                            downTime: check.status ? null : 0,
-                          }))}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="time" fontSize={10} />
-                        <YAxis
-                          fontSize={10}
-                          tickFormatter={(value) => `${value}ms`}
-                          domain={[0, 'dataMax + 10']}
-                        />
-                        <Tooltip
-                          labelFormatter={(value) => `Time: ${value}`}
-                          formatter={(
-                            value: number,
-                            name: string,
-                            props: any
-                          ) => {
-                            const { payload } = props;
-                            if (payload.downTime !== null) {
-                              return ['Down', 'Status'];
-                            }
-                            if (payload.upTime !== null) {
-                              return [
-                                formatDuration(payload.upTime),
-                                'Response Time',
-                              ];
-                            }
-                            return null;
-                          }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="upTime"
-                          stroke="#b19cd9"
-                          strokeWidth={2}
-                          dot={false}
-                          connectNulls
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="downTime"
-                          stroke="#ef4444"
-                          strokeWidth={2}
-                          dot={false}
-                          connectNulls
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                  <div className="space-y-0 flex-1">
+                    {getChartType(service.id) === 'uptime' ? (
+                      <UptimeChart
+                        checks={service.checks}
+                        timeframeHours={settings.timeframeHours}
+                        height="h-10"
+                      />
+                    ) : (
+                      <ServiceChart
+                        service={service}
+                        checks={service.checks}
+                        timeframeHours={settings.timeframeHours}
+                      />
+                    )}
                   </div>
                 )}
+
+                {/* This div will be pushed to the bottom */}
+                <div className="mt-auto pt-0 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleChartType(service.id)}
+                  >
+                    {getChartType(service.id) === 'uptime' ? (
+                      <LineChart />
+                    ) : (
+                      <Barcode />
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -561,15 +373,15 @@ function App() {
         {services.length === 0 && (
           <Card className="text-center py-12">
             <CardContent>
-              <Server className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <Server className="h-12 w-12 text-secondary-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-primary-foreground mb-2">
                 No services monitored
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-secondary-foreground mb-4">
                 The monitoring system will automatically detect and display
                 services as they are checked.
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Current targets: Google, GitHub, PostgreSQL, Redis
               </p>
             </CardContent>

@@ -3,7 +3,6 @@ package probes
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -68,11 +67,11 @@ func (p Postgres) Check() Result {
 	}
 
 	// Debug logging
-	log.Printf("Postgres probe: connecting to %s (target: %s)", dsn, p.Addr)
+	// log.Printf("Postgres probe: connecting to %s (target: %s)", dsn, p.Addr)
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Printf("Postgres probe: sql.Open failed for %s: %v", p.Addr, err)
+		// log.Printf("Postgres probe: sql.Open failed for %s: %v", p.Addr, err)
 		return Result{Target: p.Addr, Type: "postgres", Status: false, Duration: time.Since(start), CheckedAt: time.Now(), Message: err.Error()}
 	}
 	defer db.Close()
@@ -80,10 +79,10 @@ func (p Postgres) Check() Result {
 	err = db.Ping()
 	duration := time.Since(start)
 	if err != nil {
-		log.Printf("Postgres probe: db.Ping failed for %s: %v", p.Addr, err)
+		// log.Printf("Postgres probe: db.Ping failed for %s: %v", p.Addr, err)
 		return Result{Target: p.Addr, Type: "postgres", Status: false, Duration: duration, CheckedAt: time.Now(), Message: err.Error()}
 	}
 
-	log.Printf("Postgres probe: SUCCESS for %s in %v", p.Addr, duration)
+	// log.Printf("Postgres probe: SUCCESS for %s in %v", p.Addr, duration)
 	return Result{Target: p.Addr, Type: "postgres", Status: true, Duration: duration, CheckedAt: time.Now()}
 }
