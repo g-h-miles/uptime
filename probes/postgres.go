@@ -3,6 +3,7 @@ package probes
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 

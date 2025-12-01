@@ -25,7 +25,6 @@ func (h HTTP) Check() Result {
 		retries = 3 // Default to 3 attempts
 	}
 
-	var lastErr error
 	var lastStatus string
 	var lastStatusCode int
 
@@ -35,7 +34,6 @@ func (h HTTP) Check() Result {
 		duration := time.Since(start)
 
 		if err != nil {
-			lastErr = err
 			log.Printf("[HTTP] %s - Attempt %d/%d failed: %v (took %v)", h.URL, attempt, retries, err, duration)
 			if attempt < retries {
 				time.Sleep(2 * time.Second) // Wait 2s between retries
