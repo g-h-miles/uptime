@@ -9,10 +9,11 @@ import (
 )
 
 var (
-	once             sync.Once
-	monitorResetChan = make(chan struct{}, 1)
-	resourceStatus = make(map[string]bool)
-	statusMutex sync.Mutex
+	once                sync.Once
+	monitorResetChan    = make(chan struct{}, 1)
+	resourceStatus      = make(map[string]bool)
+	consecutiveFailures = make(map[string]int)
+	statusMutex         sync.Mutex
 )
 
 // ResetMonitorLoop sends a signal to reset the monitor loop, breaking any current sleep.
@@ -40,6 +41,8 @@ func monitorLoop() {
 		}
 
 		freq := GetFrequency()
+		failureThreshold := storage.GetFailureThreshold()
+
 		for _, t := range targets {
 			res := t.Probe.Check()
 			if err := storage.SaveCheck(res); err != nil {
@@ -51,16 +54,33 @@ func monitorLoop() {
 				previousStatus, ok := resourceStatus[t.Name]
 				if !ok {
 					previousStatus = true
-				}
-				if !currentStatus && previousStatus {
-					log.Printf("Resource '%s' is down, sending notification.", t.Name)
-					notifyDown(t.Name)
-				} else if currentStatus && !previousStatus {
-					log.Printf("Resource '%s' is back up, sending notification.", t.Name)
-					notifyUp(t.Name)
+					consecutiveFailures[t.Name] = 0
 				}
 
-				resourceStatus[t.Name] = currentStatus
+				if !currentStatus {
+					// Check failed
+					consecutiveFailures[t.Name]++
+					log.Printf("Resource '%s' check failed. Consecutive failures: %d/%d",
+						t.Name, consecutiveFailures[t.Name], failureThreshold)
+
+					// Only notify if we've reached the failure threshold AND we haven't already marked it down
+					if consecutiveFailures[t.Name] >= failureThreshold && previousStatus {
+						log.Printf("Resource '%s' exceeded failure threshold, sending DOWN notification.", t.Name)
+						notifyDown(t.Name)
+						resourceStatus[t.Name] = false
+					}
+				} else {
+					// Check succeeded
+					wasDown := !previousStatus || consecutiveFailures[t.Name] >= failureThreshold
+					consecutiveFailures[t.Name] = 0 // Reset failure counter
+
+					if wasDown {
+						log.Printf("Resource '%s' is back up, sending UP notification.", t.Name)
+						notifyUp(t.Name)
+						resourceStatus[t.Name] = true
+					}
+				}
+
 				statusMutex.Unlock()
 			}
 		}

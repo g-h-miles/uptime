@@ -10,13 +10,34 @@ import (
 )
 
 type Postgres struct {
-	Addr string
-	User string
-	Pass string
-	DB   string
+	Addr          string
+	User          string
+	Pass          string
+	DB            string
+	RetryAttempts int
 }
 
 func (p Postgres) Check() Result {
+	retries := p.RetryAttempts
+	if retries <= 0 {
+		retries = 3 // Default to 3 attempts
+	}
+
+	for attempt := 1; attempt <= retries; attempt++ {
+		result := p.checkOnce(attempt, retries)
+		if result.Status {
+			return result
+		}
+		if attempt < retries {
+			time.Sleep(2 * time.Second) // Wait 2s between retries
+		}
+	}
+
+	// All retries exhausted
+	return p.checkOnce(retries, retries)
+}
+
+func (p Postgres) checkOnce(attempt, totalAttempts int) Result {
 	start := time.Now()
 
 	// Parse existing query parameters from Addr
@@ -66,23 +87,21 @@ func (p Postgres) Check() Result {
 		dsn = fmt.Sprintf("postgres://%s/%s?%s", addr, dbName, queryString)
 	}
 
-	// Debug logging
-	// log.Printf("Postgres probe: connecting to %s (target: %s)", dsn, p.Addr)
-
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		// log.Printf("Postgres probe: sql.Open failed for %s: %v", p.Addr, err)
-		return Result{Target: p.Addr, Type: "postgres", Status: false, Duration: time.Since(start), CheckedAt: time.Now(), Message: err.Error()}
+		duration := time.Since(start)
+		log.Printf("[Postgres] %s - Attempt %d/%d: sql.Open failed: %v (took %v)", p.Addr, attempt, totalAttempts, err, duration)
+		return Result{Target: p.Addr, Type: "postgres", Status: false, Duration: duration, CheckedAt: time.Now(), Message: err.Error()}
 	}
 	defer db.Close()
 
 	err = db.Ping()
 	duration := time.Since(start)
 	if err != nil {
-		// log.Printf("Postgres probe: db.Ping failed for %s: %v", p.Addr, err)
+		log.Printf("[Postgres] %s - Attempt %d/%d: Ping failed: %v (took %v)", p.Addr, attempt, totalAttempts, err, duration)
 		return Result{Target: p.Addr, Type: "postgres", Status: false, Duration: duration, CheckedAt: time.Now(), Message: err.Error()}
 	}
 
-	// log.Printf("Postgres probe: SUCCESS for %s in %v", p.Addr, duration)
+	log.Printf("[Postgres] %s - SUCCESS (took %v)", p.Addr, duration)
 	return Result{Target: p.Addr, Type: "postgres", Status: true, Duration: duration, CheckedAt: time.Now()}
 }

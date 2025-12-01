@@ -15,7 +15,7 @@ import (
 )
 
 var mu sync.RWMutex
-var settings = &Settings{Frequency: 60, TimeframeHours: 24}
+var settings = &Settings{Frequency: 60, TimeframeHours: 24, FailureThreshold: 2}
 
 type CheckResponse struct {
 	Target    string    `json:"target"`
@@ -80,10 +80,13 @@ func handleSettings(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
+		if s.FailureThreshold <= 0 {
+			s.FailureThreshold = 2 // Default
+		}
 		mu.Lock()
 		settings = &s
 		mu.Unlock()
-		_ = storage.UpdateSettings(s.Frequency, s.TimeframeHours)
+		_ = storage.UpdateSettings(s.Frequency, s.TimeframeHours, s.FailureThreshold)
 		ResetMonitorLoop() // Trigger an immediate loop reset
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -101,17 +104,21 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(targets)
 	case http.MethodPost:
 		var t struct {
-			Name     string `json:"name"`
-			URL      string `json:"url"`
-			Type     string `json:"type"`
-			Username string `json:"username"`
-			Password string `json:"password"`
+			Name          string `json:"name"`
+			URL           string `json:"url"`
+			Type          string `json:"type"`
+			Username      string `json:"username"`
+			Password      string `json:"password"`
+			RetryAttempts int    `json:"retryAttempts"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := storage.AddTarget(t.Name, t.URL, t.Type, t.Username, t.Password); err != nil {
+		if t.RetryAttempts <= 0 {
+			t.RetryAttempts = 3 // Default
+		}
+		if err := storage.AddTarget(t.Name, t.URL, t.Type, t.Username, t.Password, t.RetryAttempts); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -121,11 +128,11 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 			var probe probes.Target
 			switch t.Type {
 			case "http":
-				probe = probes.HTTP{URL: t.URL}
+				probe = probes.HTTP{URL: t.URL, RetryAttempts: t.RetryAttempts}
 			case "postgres":
-				probe = probes.Postgres{Addr: t.URL, User: t.Username, Pass: t.Password, DB: "postgres"}
+				probe = probes.Postgres{Addr: t.URL, User: t.Username, Pass: t.Password, DB: "postgres", RetryAttempts: t.RetryAttempts}
 			case "redis":
-				probe = probes.Redis{Addr: t.URL, User: t.Username, Pass: t.Password}
+				probe = probes.Redis{Addr: t.URL, User: t.Username, Pass: t.Password, RetryAttempts: t.RetryAttempts}
 			}
 			if probe != nil {
 				res := probe.Check()
@@ -138,18 +145,22 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	case http.MethodPut:
 		var t struct {
-			ID       int    `json:"id"`
-			Name     string `json:"name"`
-			URL      string `json:"url"`
-			Type     string `json:"type"`
-			Username string `json:"username"`
-			Password string `json:"password"`
+			ID            int    `json:"id"`
+			Name          string `json:"name"`
+			URL           string `json:"url"`
+			Type          string `json:"type"`
+			Username      string `json:"username"`
+			Password      string `json:"password"`
+			RetryAttempts int    `json:"retryAttempts"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := storage.UpdateTarget(t.ID, t.Name, t.URL, t.Type, t.Username, t.Password); err != nil {
+		if t.RetryAttempts <= 0 {
+			t.RetryAttempts = 3 // Default
+		}
+		if err := storage.UpdateTarget(t.ID, t.Name, t.URL, t.Type, t.Username, t.Password, t.RetryAttempts); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -237,8 +248,9 @@ func handleTestTelegram(w http.ResponseWriter, r *http.Request) {
 
 // Settings for monitor frequency and timeframe
 type Settings struct {
-	Frequency      int `json:"frequency"` // seconds
-	TimeframeHours int `json:"timeframeHours"`
+	Frequency        int `json:"frequency"` // seconds
+	TimeframeHours   int `json:"timeframeHours"`
+	FailureThreshold int `json:"failureThreshold"` // consecutive failures before alerting
 }
 
 func GetFrequency() time.Duration {

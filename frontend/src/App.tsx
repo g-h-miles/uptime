@@ -243,9 +243,9 @@ function App() {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 md:flex md:w-auto">
+          <div className="flex flex-wrap gap-2 md:gap-4">
             <ModeToggle />
-            <Button variant="outline" onClick={handleAddNew}>
+            <Button variant="outline" onClick={handleAddNew} className="flex-1 sm:flex-none">
               <Plus className="mr-2 h-4 w-4" />
               Add Service
             </Button>
@@ -255,6 +255,7 @@ function App() {
                 setTempSettings(settings);
                 setShowSettings(!showSettings);
               }}
+              className="flex-1 sm:flex-none"
             >
               <SettingsIcon className="h-4 w-4 mr-2" />
               Settings

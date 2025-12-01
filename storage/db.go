@@ -52,12 +52,14 @@ func createSchema() error {
                 type TEXT,
                 username TEXT,
                 password TEXT,
-                subscribed INTEGER DEFAULT 0
+                subscribed INTEGER DEFAULT 0,
+                retry_attempts INTEGER DEFAULT 3
         );
         CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY,
                 frequency INTEGER,
-                timeframe INTEGER
+                timeframe INTEGER,
+                failure_threshold INTEGER DEFAULT 2
         );
         `)
 	if err != nil {
@@ -70,8 +72,20 @@ func createSchema() error {
 		return err
 	}
 
+	// Attempt to add retry_attempts column if missing
+	_, err = db.Exec(`ALTER TABLE targets ADD COLUMN retry_attempts INTEGER DEFAULT 3`)
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
+	}
+
+	// Attempt to add failure_threshold column to settings if missing
+	_, err = db.Exec(`ALTER TABLE settings ADD COLUMN failure_threshold INTEGER DEFAULT 2`)
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
+	}
+
 	// Insert default settings if not exist
-	_, err = db.Exec(`INSERT INTO settings(id, frequency, timeframe) VALUES(1, 60, 24) ON CONFLICT(id) DO NOTHING`)
+	_, err = db.Exec(`INSERT INTO settings(id, frequency, timeframe, failure_threshold) VALUES(1, 60, 24, 2) ON CONFLICT(id) DO NOTHING`)
 	return err
 }
 
@@ -89,7 +103,7 @@ func boolToInt(b bool) int {
 }
 
 func GetTargets() ([]MonitorTarget, error) {
-	rows, err := db.Query(`SELECT id, name, url, type, username, password, subscribed FROM targets`)
+	rows, err := db.Query(`SELECT id, name, url, type, username, password, subscribed, COALESCE(retry_attempts, 3) as retry_attempts FROM targets`)
 	if err != nil {
 		return nil, err
 	}
@@ -101,17 +115,18 @@ func GetTargets() ([]MonitorTarget, error) {
 		var name, url, typ string
 		var username, password sql.NullString // Use sql.NullString for nullable columns
 		var subscribed int
-		if err := rows.Scan(&id, &name, &url, &typ, &username, &password, &subscribed); err != nil {
+		var retryAttempts int
+		if err := rows.Scan(&id, &name, &url, &typ, &username, &password, &subscribed, &retryAttempts); err != nil {
 			return nil, err
 		}
 		var probe probes.Target
 		switch typ {
 		case "http":
-			probe = probes.HTTP{URL: url}
+			probe = probes.HTTP{URL: url, RetryAttempts: retryAttempts}
 		case "postgres":
-			probe = probes.Postgres{Addr: url, User: username.String, Pass: password.String, DB: "postgres"}
+			probe = probes.Postgres{Addr: url, User: username.String, Pass: password.String, DB: "postgres", RetryAttempts: retryAttempts}
 		case "redis":
-			probe = probes.Redis{Addr: url, User: username.String, Pass: password.String}
+			probe = probes.Redis{Addr: url, User: username.String, Pass: password.String, RetryAttempts: retryAttempts}
 		}
 		targets = append(targets, MonitorTarget{Probe: probe, Name: name, URL: url, Subscribed: subscribed == 1})
 	}
@@ -177,18 +192,19 @@ func insertDefaultTargets() ([]MonitorTarget, error) {
 }
 
 type TargetInfo struct {
-	ID         int    `json:"id"`
-	Name       string `json:"name"`
-	URL        string `json:"url"`
-	Type       string `json:"type"`
-	Username   string `json:"username,omitempty"`
-	Subscribed bool   `json:"subscribed"`
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	URL           string `json:"url"`
+	Type          string `json:"type"`
+	Username      string `json:"username,omitempty"`
+	Subscribed    bool   `json:"subscribed"`
+	RetryAttempts int    `json:"retryAttempts"`
 	// Password is intentionally omitted for security
 }
 
 func GetTargetInfos() ([]TargetInfo, error) {
 	// Select the new columns but don't expose password
-	rows, err := db.Query(`SELECT id, name, url, type, username, subscribed FROM targets ORDER BY id`)
+	rows, err := db.Query(`SELECT id, name, url, type, username, subscribed, COALESCE(retry_attempts, 3) FROM targets ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +214,7 @@ func GetTargetInfos() ([]TargetInfo, error) {
 	for rows.Next() {
 		var t TargetInfo
 		var subscribed int
-		if err := rows.Scan(&t.ID, &t.Name, &t.URL, &t.Type, &t.Username, &subscribed); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.URL, &t.Type, &t.Username, &subscribed, &t.RetryAttempts); err != nil {
 			return nil, err
 		}
 		t.Subscribed = subscribed == 1
@@ -207,18 +223,24 @@ func GetTargetInfos() ([]TargetInfo, error) {
 	return targets, nil
 }
 
-func AddTarget(name, url, typ, username, password string) error {
-	_, err := db.Exec("INSERT INTO targets(name, url, type, username, password, subscribed) VALUES(?, ?, ?, ?, ?, 0)", name, url, typ, username, password)
+func AddTarget(name, url, typ, username, password string, retryAttempts int) error {
+	if retryAttempts <= 0 {
+		retryAttempts = 3
+	}
+	_, err := db.Exec("INSERT INTO targets(name, url, type, username, password, subscribed, retry_attempts) VALUES(?, ?, ?, ?, ?, 0, ?)", name, url, typ, username, password, retryAttempts)
 	return err
 }
 
-func UpdateTarget(id int, name, url, typ, username, password string) error {
+func UpdateTarget(id int, name, url, typ, username, password string, retryAttempts int) error {
+	if retryAttempts <= 0 {
+		retryAttempts = 3
+	}
 	// Only update password if a new one is provided.
 	if password != "" {
-		_, err := db.Exec("UPDATE targets SET name = ?, url = ?, type = ?, username = ?, password = ? WHERE id = ?", name, url, typ, username, password, id)
+		_, err := db.Exec("UPDATE targets SET name = ?, url = ?, type = ?, username = ?, password = ?, retry_attempts = ? WHERE id = ?", name, url, typ, username, password, retryAttempts, id)
 		return err
 	}
-	_, err := db.Exec("UPDATE targets SET name = ?, url = ?, type = ?, username = ? WHERE id = ?", name, url, typ, username, id)
+	_, err := db.Exec("UPDATE targets SET name = ?, url = ?, type = ?, username = ?, retry_attempts = ? WHERE id = ?", name, url, typ, username, retryAttempts, id)
 	return err
 }
 
@@ -277,21 +299,22 @@ func LastChecks(hours int) ([]probes.Result, error) {
 
 // Settings persistence
 type Settings struct {
-	Frequency      int
-	TimeframeHours int
+	Frequency        int
+	TimeframeHours   int
+	FailureThreshold int
 }
 
 func GetSettings() (*Settings, error) {
-	row := db.QueryRow("SELECT frequency, timeframe FROM settings WHERE id=1")
+	row := db.QueryRow("SELECT frequency, timeframe, COALESCE(failure_threshold, 2) FROM settings WHERE id=1")
 	var s Settings
-	if err := row.Scan(&s.Frequency, &s.TimeframeHours); err != nil {
+	if err := row.Scan(&s.Frequency, &s.TimeframeHours, &s.FailureThreshold); err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
-func UpdateSettings(freq, timeframe int) error {
-	res, err := db.Exec("UPDATE settings SET frequency=?, timeframe=? WHERE id=1", freq, timeframe)
+func UpdateSettings(freq, timeframe, failureThreshold int) error {
+	res, err := db.Exec("UPDATE settings SET frequency=?, timeframe=?, failure_threshold=? WHERE id=1", freq, timeframe, failureThreshold)
 	if err != nil {
 		return err
 	}
@@ -300,7 +323,15 @@ func UpdateSettings(freq, timeframe int) error {
 		return err
 	}
 	if c == 0 {
-		_, err = db.Exec("INSERT INTO settings(id, frequency, timeframe) VALUES(1, ?, ?)", freq, timeframe)
+		_, err = db.Exec("INSERT INTO settings(id, frequency, timeframe, failure_threshold) VALUES(1, ?, ?, ?)", freq, timeframe, failureThreshold)
 	}
 	return err
+}
+
+func GetFailureThreshold() int {
+	settings, err := GetSettings()
+	if err != nil {
+		return 2 // Default
+	}
+	return settings.FailureThreshold
 }
