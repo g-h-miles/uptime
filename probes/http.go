@@ -1,6 +1,7 @@
 package probes
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,8 +9,13 @@ import (
 )
 
 var httpClient = &http.Client{
-	Timeout:   10 * time.Second,
-	Transport: &http.Transport{Proxy: nil},
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		Proxy: nil,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // Accept self-signed certificates (common for IP cameras)
+		},
+	},
 }
 
 // HTTP target

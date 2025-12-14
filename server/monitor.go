@@ -67,6 +67,7 @@ func monitorLoop() {
 					if consecutiveFailures[t.Name] >= failureThreshold && previousStatus {
 						log.Printf("Resource '%s' exceeded failure threshold, sending DOWN notification.", t.Name)
 						notifyDown(t.Name)
+						callWebhook(t.OnDown)
 						resourceStatus[t.Name] = false
 					}
 				} else {
@@ -77,6 +78,7 @@ func monitorLoop() {
 					if wasDown {
 						log.Printf("Resource '%s' is back up, sending UP notification.", t.Name)
 						notifyUp(t.Name)
+						callWebhook(t.OnUp)
 						resourceStatus[t.Name] = true
 					}
 				}

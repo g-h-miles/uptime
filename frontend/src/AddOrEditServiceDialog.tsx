@@ -32,6 +32,8 @@ export function AddOrEditServiceDialog({
   const [type, setType] = useState<'http' | 'postgres' | 'redis'>('http');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [onDown, setOnDown] = useState('');
+  const [onUp, setOnUp] = useState('');
 
   const isEditMode = !!existingTarget;
 
@@ -42,6 +44,8 @@ export function AddOrEditServiceDialog({
       setType(existingTarget.type);
       setUsername(existingTarget.username || '');
       setPassword(''); // Always clear password for security
+      setOnDown(existingTarget.onDown || '');
+      setOnUp(existingTarget.onUp || '');
     } else {
       // Reset form for adding
       setName('');
@@ -49,6 +53,8 @@ export function AddOrEditServiceDialog({
       setType('http');
       setUsername('');
       setPassword('');
+      setOnDown('');
+      setOnUp('');
     }
   }, [existingTarget, isEditMode]);
 
@@ -69,6 +75,8 @@ export function AddOrEditServiceDialog({
       type,
       username,
       password,
+      onDown,
+      onUp,
     });
   };
 
@@ -152,6 +160,32 @@ export function AddOrEditServiceDialog({
               </div>
             </>
           )}
+          <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+            <Label htmlFor="onDown" className="md:text-right">
+              On Down Hook
+            </Label>
+            <Input
+              id="onDown"
+              type="url"
+              value={onDown}
+              onChange={(e) => setOnDown(e.target.value)}
+              className="md:col-span-3"
+              placeholder="https://example.com/webhook/down (optional)"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+            <Label htmlFor="onUp" className="md:text-right">
+              On Up Hook
+            </Label>
+            <Input
+              id="onUp"
+              type="url"
+              value={onUp}
+              onChange={(e) => setOnUp(e.target.value)}
+              className="md:col-span-3"
+              placeholder="https://example.com/webhook/up (optional)"
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

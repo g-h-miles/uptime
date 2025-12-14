@@ -110,6 +110,8 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 			Username      string `json:"username"`
 			Password      string `json:"password"`
 			RetryAttempts int    `json:"retryAttempts"`
+			OnDown        string `json:"onDown"`
+			OnUp          string `json:"onUp"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -118,7 +120,7 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 		if t.RetryAttempts <= 0 {
 			t.RetryAttempts = 3 // Default
 		}
-		if err := storage.AddTarget(t.Name, t.URL, t.Type, t.Username, t.Password, t.RetryAttempts); err != nil {
+		if err := storage.AddTarget(t.Name, t.URL, t.Type, t.Username, t.Password, t.RetryAttempts, t.OnDown, t.OnUp); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -152,6 +154,8 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 			Username      string `json:"username"`
 			Password      string `json:"password"`
 			RetryAttempts int    `json:"retryAttempts"`
+			OnDown        string `json:"onDown"`
+			OnUp          string `json:"onUp"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -160,7 +164,7 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 		if t.RetryAttempts <= 0 {
 			t.RetryAttempts = 3 // Default
 		}
-		if err := storage.UpdateTarget(t.ID, t.Name, t.URL, t.Type, t.Username, t.Password, t.RetryAttempts); err != nil {
+		if err := storage.UpdateTarget(t.ID, t.Name, t.URL, t.Type, t.Username, t.Password, t.RetryAttempts, t.OnDown, t.OnUp); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

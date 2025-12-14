@@ -37,6 +37,8 @@ export interface TargetInfo {
   username?: string;
   password?: string;
   subscribed?: boolean;
+  onDown?: string;
+  onUp?: string;
 }
 
 export interface ApiResponse<T> {

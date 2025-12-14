@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -45,4 +46,27 @@ func notifyUp(resource string) {
 
 func testTelegram() {
 	_ = sendTelegram("Test notification from Uptime Monitor")
+}
+
+func callWebhook(webhookURL string) {
+	if webhookURL == "" {
+		return
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(webhookURL)
+	if err != nil {
+		log.Printf("Webhook call failed for %s: %v", webhookURL, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		log.Printf("Webhook called successfully: %s (status: %d)", webhookURL, resp.StatusCode)
+	} else {
+		log.Printf("Webhook returned non-success status: %s (status: %d)", webhookURL, resp.StatusCode)
+	}
 }
