@@ -48,43 +48,80 @@ func monitorLoop() {
 			if err := storage.SaveCheck(res); err != nil {
 				log.Println("save error:", err)
 			}
-			if t.Subscribed {
-				currentStatus := res.Status
-				statusMutex.Lock()
-				previousStatus, ok := resourceStatus[t.Name]
-				if !ok {
-					previousStatus = true
-					consecutiveFailures[t.Name] = 0
-				}
 
-				if !currentStatus {
-					// Check failed
-					consecutiveFailures[t.Name]++
-					log.Printf("Resource '%s' check failed. Consecutive failures: %d/%d",
-						t.Name, consecutiveFailures[t.Name], failureThreshold)
+			// Track status changes for both notifications and webhooks
+			currentStatus := res.Status
+			hasWebhooks := t.OnDown != "" || t.OnUp != ""
 
-					// Only notify if we've reached the failure threshold AND we haven't already marked it down
-					if consecutiveFailures[t.Name] >= failureThreshold && previousStatus {
-						log.Printf("Resource '%s' exceeded failure threshold, sending DOWN notification.", t.Name)
-						notifyDown(t.Name)
-						callWebhook(t.OnDown)
-						resourceStatus[t.Name] = false
-					}
-				} else {
-					// Check succeeded
-					wasDown := !previousStatus || consecutiveFailures[t.Name] >= failureThreshold
-					consecutiveFailures[t.Name] = 0 // Reset failure counter
-
-					if wasDown {
-						log.Printf("Resource '%s' is back up, sending UP notification.", t.Name)
-						notifyUp(t.Name)
-						callWebhook(t.OnUp)
-						resourceStatus[t.Name] = true
-					}
-				}
-
-				statusMutex.Unlock()
+			// Skip status tracking if not subscribed AND no webhooks configured
+			if !t.Subscribed && !hasWebhooks {
+				log.Printf("[MONITOR] %s: status=%v, skipping (not subscribed, no webhooks)", t.Name, res.Status)
+				continue
 			}
+
+			log.Printf("[MONITOR] %s: status=%v, subscribed=%v, hasWebhooks=%v", t.Name, res.Status, t.Subscribed, hasWebhooks)
+
+			statusMutex.Lock()
+			previousStatus, ok := resourceStatus[t.Name]
+			if !ok {
+				log.Printf("[MONITOR] %s: initializing status tracking (assuming UP)", t.Name)
+				previousStatus = true
+				consecutiveFailures[t.Name] = 0
+			}
+
+			if !currentStatus {
+				// Check failed
+				consecutiveFailures[t.Name]++
+				log.Printf("[MONITOR] %s: CHECK FAILED - consecutive: %d/%d, previousStatus=%v",
+					t.Name, consecutiveFailures[t.Name], failureThreshold, previousStatus)
+
+				// Trigger DOWN notification/webhook if threshold reached AND not already marked down
+				if consecutiveFailures[t.Name] >= failureThreshold && previousStatus {
+					log.Printf("[MONITOR] %s: THRESHOLD REACHED - triggering DOWN actions", t.Name)
+
+					// Send Telegram notification if subscribed
+					if t.Subscribed {
+						log.Printf("[MONITOR] %s: sending Telegram DOWN notification", t.Name)
+						notifyDown(t.Name)
+					}
+
+					// Call webhook if configured
+					if t.OnDown != "" {
+						log.Printf("[MONITOR] %s: calling onDown webhook: %s", t.Name, t.OnDown)
+						callWebhook(t.OnDown)
+					}
+
+					resourceStatus[t.Name] = false
+				} else if !previousStatus {
+					log.Printf("[MONITOR] %s: already DOWN, skipping duplicate notifications", t.Name)
+				}
+			} else {
+				// Check succeeded
+				wasDown := !previousStatus || consecutiveFailures[t.Name] >= failureThreshold
+				consecutiveFailures[t.Name] = 0 // Reset failure counter
+
+				log.Printf("[MONITOR] %s: CHECK SUCCEEDED - wasDown=%v", t.Name, wasDown)
+
+				if wasDown {
+					log.Printf("[MONITOR] %s: RECOVERED - triggering UP actions", t.Name)
+
+					// Send Telegram notification if subscribed
+					if t.Subscribed {
+						log.Printf("[MONITOR] %s: sending Telegram UP notification", t.Name)
+						notifyUp(t.Name)
+					}
+
+					// Call webhook if configured
+					if t.OnUp != "" {
+						log.Printf("[MONITOR] %s: calling onUp webhook: %s", t.Name, t.OnUp)
+						callWebhook(t.OnUp)
+					}
+
+					resourceStatus[t.Name] = true
+				}
+			}
+
+			statusMutex.Unlock()
 		}
 
 		select {
