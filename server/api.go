@@ -135,6 +135,8 @@ func handleTargets(w http.ResponseWriter, r *http.Request) {
 				probe = probes.Postgres{Addr: t.URL, User: t.Username, Pass: t.Password, DB: "postgres", RetryAttempts: t.RetryAttempts}
 			case "redis":
 				probe = probes.Redis{Addr: t.URL, User: t.Username, Pass: t.Password, RetryAttempts: t.RetryAttempts}
+			case "ip":
+				probe = probes.IP{Address: t.URL, RetryAttempts: t.RetryAttempts}
 			}
 			if probe != nil {
 				res := probe.Check()

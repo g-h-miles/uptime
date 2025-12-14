@@ -16,7 +16,7 @@ export interface Service {
   id: string;
   name: string;
   url: string;
-  type: "http" | "postgres" | "redis";
+  type: "http" | "postgres" | "redis" | "ip";
   status: "up" | "down" | "degraded";
   responseTime: number;
   uptime: number;
@@ -33,7 +33,7 @@ export interface TargetInfo {
   id: number;
   name: string;
   url: string;
-  type: "http" | "postgres" | "redis";
+  type: "http" | "postgres" | "redis" | "ip";
   username?: string;
   password?: string;
   subscribed?: boolean;

@@ -144,6 +144,8 @@ func GetTargets() ([]MonitorTarget, error) {
 			probe = probes.Postgres{Addr: url, User: username.String, Pass: password.String, DB: "postgres", RetryAttempts: retryAttempts}
 		case "redis":
 			probe = probes.Redis{Addr: url, User: username.String, Pass: password.String, RetryAttempts: retryAttempts}
+		case "ip":
+			probe = probes.IP{Address: url, RetryAttempts: retryAttempts}
 		}
 		targets = append(targets, MonitorTarget{Probe: probe, Name: name, URL: url, Subscribed: subscribed == 1, OnDown: onDown, OnUp: onUp})
 	}
@@ -200,6 +202,8 @@ func insertDefaultTargets() ([]MonitorTarget, error) {
 			probe = probes.Postgres{Addr: t.URL, User: user, Pass: pass, DB: "postgres"}
 		case "redis":
 			probe = probes.Redis{Addr: t.URL, User: user, Pass: pass}
+		case "ip":
+			probe = probes.IP{Address: t.URL}
 		}
 		targets = append(targets, MonitorTarget{Probe: probe, Name: t.Name, URL: t.URL, Subscribed: false})
 	}

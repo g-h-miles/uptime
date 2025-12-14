@@ -29,7 +29,7 @@ export function AddOrEditServiceDialog({
 }: Props) {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
-  const [type, setType] = useState<'http' | 'postgres' | 'redis'>('http');
+  const [type, setType] = useState<'http' | 'postgres' | 'redis' | 'ip'>('http');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [onDown, setOnDown] = useState('');
@@ -67,6 +67,7 @@ export function AddOrEditServiceDialog({
     ) {
       normalizedUrl = `https://${normalizedUrl}`;
     }
+    // For IP type, use URL as-is (just the IP address)
 
     onSave({
       id: existingTarget?.id || 0,
@@ -110,24 +111,26 @@ export function AddOrEditServiceDialog({
               id="type"
               value={type}
               onChange={(e) =>
-                setType(e.target.value as 'http' | 'postgres' | 'redis')
+                setType(e.target.value as 'http' | 'postgres' | 'redis' | 'ip')
               }
               className="md:col-span-3"
             >
               <option value="http">HTTP</option>
               <option value="postgres">Postgres</option>
               <option value="redis">Redis</option>
+              <option value="ip">IP Device</option>
             </Select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
             <Label htmlFor="url" className="md:text-right">
-              URL
+              {type === 'ip' ? 'IP Address' : 'URL'}
             </Label>
             <Input
               id="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="md:col-span-3"
+              placeholder={type === 'ip' ? '192.168.1.251' : ''}
             />
           </div>
           {showCredentials && (
