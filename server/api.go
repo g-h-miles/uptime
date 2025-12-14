@@ -27,6 +27,7 @@ type CheckResponse struct {
 }
 
 func registerAPI(mux *httpmux.Router) {
+	mux.GET("/health", handleHealth)
 	mux.GET("/checks", handleChecks)
 	mux.GET("/settings", handleSettings)
 	mux.POST("/settings", handleSettings)
@@ -38,6 +39,15 @@ func registerAPI(mux *httpmux.Router) {
 	mux.POST("/targets/subscribe", handleSubscribe)
 	mux.POST("/targets/unsubscribe", handleUnsubscribe)
 	mux.POST("/test-telegram", handleTestTelegram)
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+		"service": "uptime-monitor",
+	})
 }
 
 func handleChecks(w http.ResponseWriter, r *http.Request) {
