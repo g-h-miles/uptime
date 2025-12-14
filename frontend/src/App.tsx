@@ -13,6 +13,7 @@ import {
   LineChart,
   Sun,
   Moon,
+  Camera,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -124,6 +125,8 @@ function App() {
         return <Database className="h-4 w-4" />;
       case 'redis':
         return <Server className="h-4 w-4" />;
+      case 'ip':
+        return <Camera className="h-4 w-4" />;
       default:
         return <Server className="h-4 w-4" />;
     }
